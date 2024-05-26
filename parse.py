@@ -150,17 +150,19 @@ class Directory(Element):
             self.elements.append(Blob(0, data[offset:]))
 
 
-# a Segment can contain segments, blobs, and directories.
-class Segment(Element):
+class Container(Element):
+    PRE_TABLE_HEADER_LENGTH = 32
+
     def __init__(self, id: int, data: bytes):
         super().__init__()
         self.id = id
-        self.preSegmentTableHeader = data[:32]
+        self.preSegmentTableHeader = data[:self.PRE_TABLE_HEADER_LENGTH]
 
-        assert data[16:20] == b'csiD'
-        # parse the segment table, construct contents
-        _, firstSegmentOffset = self.parse_entry(data[32:36])
-        table = data[32:firstSegmentOffset]
+        self.signature_assert(data)
+
+        # parse the table, construct contents
+        _, firstElementOffset = self.parse_entry(data[self.PRE_TABLE_HEADER_LENGTH:self.PRE_TABLE_HEADER_LENGTH+4])
+        table = data[self.PRE_TABLE_HEADER_LENGTH:firstElementOffset]
 
         elements = [self.parse_entry(table[i:i+4]) for i in range(0, len(table), 4)]
 
@@ -173,17 +175,22 @@ class Segment(Element):
             if element := self.create_element(currentId, elementData):
                 self.elements.append(element)
 
-        lastId, lastOffset = elements[-1]
-        if lastOffset == 0:
-            _, lastOffset = elements[-2]
+        lastIndex = -1
+        lastId, lastOffset = elements[lastIndex]
+        while lastOffset == 0:
+            lastIndex -= 1
+            _, lastOffset = elements[lastIndex]
         lastData = data[lastOffset:]
         if element := self.create_element(lastId, lastData):
             self.elements.append(element)
 
+    def signature_assert(self, data: bytes):
+        pass
+
     @staticmethod
     def create_element(id: int, data: bytes):
         if len(data) > 36 and data[16:20] == b'csiD':
-            return Segment(id, data)
+            return DiscContainer(id, data)
 
         if len(data) < 8:
             return Blob(id, data)
@@ -219,8 +226,30 @@ class Segment(Element):
         return header
 
 
+class DiscContainer(Container):
+    PRE_TABLE_HEADER_LENGTH = 32
+
+    def signature_assert(self, data: bytes):
+        assert data[16:20] == b'csiD'
+
+
+class OldContainer(Container):
+    PRE_TABLE_HEADER_LENGTH = 16
+
+    def signature_assert(self, data: bytes):
+        assert data[16:20] != b'csiD'
+
+
+def build_root_container(data: bytes):
+    # check for "Disc" signature to determine root container type
+    if data[16:20] == b'csiD':
+        return DiscContainer(0x69, data)
+    else:
+        return OldContainer(0x69, data)
+
+
 def parse(data: bytes):
-    root = Segment(0x69, data)
+    root = build_root_container(data)
     root.print()
 
 
