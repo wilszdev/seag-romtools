@@ -111,8 +111,6 @@ class Elf32:
     def to_blob(self) -> bytes:
         # offset of the actual data in the segments
         offset = 0x34 + 0x20 * len(self.segments) + 0x28
-        totalSize = offset + sum([len(data) for data, address in self.segments])
-
 
         blob = self.elf32_header(
                 OSABI_SYSV, ET_EXEC, MACHINE_ARM, 0,
@@ -159,7 +157,7 @@ def rom2elf(data: bytes) -> bytes:
             data = uncprs.decompress(data)
         elif file.packed and data[:4] == b'LZMA':
             data = unlzma.decompress(data)
-        elf.add_segment(file.blob, file.loadAddress)
+        elf.add_segment(data, file.loadAddress)
 
     return elf.to_blob()
 
