@@ -21,8 +21,8 @@ import struct
 import sys
 
 
-ERR_OK      = 0x00
-ERR_USAGE   = 0x01
+ERR_OK    = 0x00
+ERR_USAGE = 0x01
 
 
 def main() -> int:
@@ -40,7 +40,10 @@ def main() -> int:
         with inputFile:
             data = inputFile.read()
 
-        parse(data)
+        root = build_root_container(data)
+        root.print()
+
+    return ERR_OK
 
 
 # so that type hints work
@@ -246,11 +249,6 @@ def build_root_container(data: bytes):
         return DiscContainer(0x69, data)
     else:
         return OldContainer(0x69, data)
-
-
-def parse(data: bytes):
-    root = build_root_container(data)
-    root.print()
 
 
 if __name__ == '__main__':

@@ -1,0 +1,3 @@
+[submodule "seag-cprs"]
+	path = seag-cprs
+	url = git@github.com:wilszdev/seag-cprs.git
