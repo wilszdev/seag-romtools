@@ -46,6 +46,10 @@ def main() -> int:
     return ERR_OK
 
 
+EXTRA_SPACE_ID    = 0x00
+ROOT_CONTAINER_ID = 0x1d
+
+
 # so that type hints work
 class Element: pass
 
@@ -165,9 +169,10 @@ class Container(Element):
 
         # parse the table, construct contents
         _, firstElementOffset = self.parse_entry(data[self.PRE_TABLE_HEADER_LENGTH:self.PRE_TABLE_HEADER_LENGTH+4])
-        table = data[self.PRE_TABLE_HEADER_LENGTH:firstElementOffset]
-
-        elements = [self.parse_entry(table[i:i+4]) for i in range(0, len(table), 4)]
+        if firstElementOffset:
+            elements = self.get_elements_old(data)
+        else:
+            elements = self.get_elements_new(data)
 
         for i in range(len(elements) - 1):
             currentId, currentOffset = elements[i]
@@ -175,7 +180,12 @@ class Container(Element):
 
             # carve out the data and decide the type
             elementData = data[currentOffset:nextOffset]
-            if element := self.create_element(currentId, elementData):
+            if currentId == ROOT_CONTAINER_ID or currentOffset == 0:
+                element = Blob(currentId, elementData)
+            else:
+                element = self.create_element(currentId, elementData)
+
+            if element:
                 self.elements.append(element)
 
         lastIndex = -1
@@ -186,6 +196,24 @@ class Container(Element):
         lastData = data[lastOffset:]
         if element := self.create_element(lastId, lastData):
             self.elements.append(element)
+
+
+    def get_elements_old(self, data: bytes):
+        _, firstElementOffset = self.parse_entry(data[self.PRE_TABLE_HEADER_LENGTH:self.PRE_TABLE_HEADER_LENGTH+4])
+        table = data[self.PRE_TABLE_HEADER_LENGTH:firstElementOffset]
+        return [self.parse_entry(table[i:i+4]) for i in range(0, len(table), 4)]
+
+    def get_elements_new(self, data: bytes):
+        elements = []
+
+        table = data[self.PRE_TABLE_HEADER_LENGTH:]
+        tableOffset = 0
+        while 1:
+            id, offset = self.parse_entry(table[tableOffset:tableOffset+4])
+            elements.append((id, offset))
+            if id == EXTRA_SPACE_ID:
+                return elements
+            tableOffset += 4
 
     def signature_assert(self, data: bytes):
         pass
@@ -211,6 +239,11 @@ class Container(Element):
         return struct.unpack('<BI', data)
 
     def header_blob(self) -> bytes:
+        # if the first element is the root container ID, we don't
+        # need to build the header blob.
+        if self.elements and self.elements[0].id == ROOT_CONTAINER_ID:
+            return bytes()
+
         # construct the segment table.
         # would help to figure out what some of the other parameters are
         # in the first 32 bytes, but not a big deal
@@ -246,9 +279,9 @@ class OldContainer(Container):
 def build_root_container(data: bytes):
     # check for "Disc" signature to determine root container type
     if data[16:20] == b'csiD':
-        return DiscContainer(0x69, data)
+        return DiscContainer(ROOT_CONTAINER_ID, data)
     else:
-        return OldContainer(0x69, data)
+        return OldContainer(ROOT_CONTAINER_ID, data)
 
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # seag-rom2elf
-# Copyright (C) 2024  wilszdev
+# Copyright (C) 2024 wilszdev
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,6 +24,7 @@ import sys
 from parse import build_root_container, File
 
 uncprs = importlib.import_module("seag-cprs.uncprs")
+unlzma = importlib.import_module("seag-lzma.unlzma")
 
 
 ERR_OK        = 0x00
@@ -154,9 +155,10 @@ def rom2elf(data: bytes) -> bytes:
 
     for file in files:
         data = file.blob
-        if file.packed:
-            # obviously won't work for LZMA compressed data currently
+        if file.packed and data[:4] == b'CPRS':
             data = uncprs.decompress(data)
+        elif file.packed and data[:4] == b'LZMA':
+            data = unlzma.decompress(data)
         elf.add_segment(file.blob, file.loadAddress)
 
     return elf.to_blob()
