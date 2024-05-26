@@ -43,13 +43,13 @@ def main() -> int:
         inputFile = sys.stdin.buffer if sys.argv[1] == '-' else open(sys.argv[1], 'rb')
     except OSError:
         sys.stderr.write(f'Error: Unable to open file {sys.argv[1]}\n')
-        return ERR_CPRS_FILE
+        return ERR_ROM_FILE
 
     with inputFile:
         inputData = inputFile.read()
 
     if not (elf := rom2elf(inputData)):
-        return ERR_UNCPRS
+        return ERR_ROM2ELF
 
     try:
         outputFile = sys.stdout.buffer if len(sys.argv) == 2 else open(sys.argv[2], 'wb')
