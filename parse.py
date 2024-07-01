@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-# seag-rom2elf
-# Copyright (C) 2024  wilszdev
+# seag-romtools
+# Copyright (C) 2024 wilszdev
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
