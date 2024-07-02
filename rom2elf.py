@@ -63,8 +63,6 @@ def main() -> int:
             sys.stderr.write(f'Error: Unable to open file {path}\n')
             return ERR_IN_FILE
 
-    args.inputfile = 'samples/rom5_patched.bin'
-
     try:
         inputFile = open(args.inputfile, 'rb') if args.inputfile else sys.stdin.buffer
     except OSError:
