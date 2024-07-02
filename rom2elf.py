@@ -133,41 +133,24 @@ class Elf32:
         return struct.pack('<10I', name, type, flags, addr, offset, size, link, info, addralign, entsize)
 
     def resolve_segment_overlaps(self) -> None:
-        newSegments = []
+        newSegments = [self.segments[0]]
 
-        for data, address in self.segments:
+        for data, address in self.segments[1:]:
             end = address + len(data)
-            wasOverlapping = True
+            resolved = False
             for i in range(len(newSegments)):
                 curData, curAddress = newSegments[i]
                 curEnd = curAddress + len(curData)
-                # new segment is subset of an existing segment
-                if address >= curAddress and end <= curEnd:
-                    offset = address - curAddress
-                    newData = curData
-                    newData[offset:offset+len(data)] = data
-                    newSegments[i] = (newData, curAddress)
-                # overlaps start
-                elif address < curAddress and end >= curAddress:
-                    offset = curAddress - address
-                    newData = curData
-                    newData[:end - curAddress] = data[offset:]
-                    newSegments[i] = (newData, curAddress)
 
-                    beforeData = data[:offset]
-                    newSegments.append((beforeData, address))
-                # overlaps end
-                elif address < curEnd and end >= curEnd:
-                    offset = address - curAddress
-                    newData = curData
-                    newData[offset:] = data[:end - curEnd]
-                    newSegments[i] = (newData, curAddress)
+                # check for an overlap, combining the segments
+                if curAddress <= address <= curEnd or curAddress <= end <= curEnd:
+                    startOffset = max(0, address - curAddress)
+                    endOffset = min(len(curData), end - curAddress)
+                    newSegments[i] = (bytes(curData[:startOffset] + data + curData[endOffset:]), min(address, curAddress))
+                    resolved = True
+                    break
 
-                    afterData = data[end - curEnd:]
-                    newSegments.append((afterData, curEnd))
-                else:
-                    wasOverlapping = False
-            if not wasOverlapping:
+            if not resolved:
                 newSegments.append((data, address))
 
         self.segments = newSegments
