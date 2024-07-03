@@ -18,6 +18,7 @@
 
 
 import argparse
+import functools
 import importlib
 import struct
 import sys
@@ -42,6 +43,8 @@ def main() -> int:
     parser.add_argument('-o', '--outputfile', required=False, help='Path to the output file. If unspecified, stdout is used.')
 
     parser.add_argument('-r', '--resolve', action='store_true', help='Resolve overlapping memory segments')
+
+    parser.add_argument('--ignore', action='append', help='Segment IDs (in hex) to ignore', type=functools.partial(int, base=16))
 
     parser.add_argument('segments', nargs='*', help='Pairs of memory offsets (in hex) and paths to binary files', type=str)
 
@@ -72,7 +75,7 @@ def main() -> int:
     with inputFile:
         inputData = inputFile.read()
 
-    if not (elf := rom2elf(inputData, extraSegments, args.resolve)):
+    if not (elf := rom2elf(inputData, extraSegments, args.resolve, args.ignore)):
         return ERR_ROM2ELF
 
     try:
@@ -179,7 +182,10 @@ class Elf32:
         return blob
 
 
-def rom2elf(data: bytes, extraSegments: list[tuple[int, bytes]], resolve=False) -> bytes:
+def rom2elf(data: bytes, extraSegments: list[tuple[int, bytes]], resolve=False, ignore: list[int] | None = None) -> bytes:
+    if ignore is None:
+        ignore = []
+
     root = build_root_container(data)
 
     # find all the Files
@@ -189,11 +195,12 @@ def rom2elf(data: bytes, extraSegments: list[tuple[int, bytes]], resolve=False) 
     while toCheck:
         newToCheck = []
         for element in toCheck:
-            for child in element.elements:
-                if isinstance(child, File):
-                    files.append(child)
-                else:
-                    newToCheck.append(child)
+            if element.id not in ignore:
+                for child in element.elements:
+                    if isinstance(child, File):
+                        files.append(child)
+                    else:
+                        newToCheck.append(child)
         toCheck = newToCheck
 
     elf = Elf32()
