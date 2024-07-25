@@ -1,9 +1,19 @@
 # seag-romtools
 a collection of little tools for seagate ROMs
 
+## cloning
+this repo uses submodules, so needs to be cloned with the `--recursive` option
+
+```
+git clone git@github.com:wilszdev/seag-romtools.git --recursive
+```
+
 ## seag-rom2elf
 tool for extracting useful portions of a ROM dump into a more workable format
 
-it does technically work, but currently loads all the files from the whole ROM.
-this isn't very smart as we get lots of overlapping segments in our ELF file.
+an example invocation for a ROM dump `rom.bin` and a RAM dump `ram.bin` from
+address 0x100000 is
 
+```
+python rom2elf.py -r -i rom.bin -o rom.elf 100000 ram.bin
+```
